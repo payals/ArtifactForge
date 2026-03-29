@@ -54,9 +54,13 @@ def create_mcrs_app(checkpointer: Optional[Any] = None) -> StateGraph:
         "final_arbiter",
         route_after_arbiter,
         {
-            "polish": "polisher",
-            "revise_research": "research_lead",
-            "revise_draft": "draft_writer",
+            "intent_architect": "intent_architect",
+            "research_lead": "research_lead",
+            "evidence_ledger": "evidence_ledger",
+            "analyst": "analyst",
+            "output_strategist": "output_strategist",
+            "draft_writer": "draft_writer",
+            "polisher": "polisher",
             "end": END,
         },
     )
@@ -246,13 +250,22 @@ def route_after_review(state: MCRSState) -> Literal["revise", "verify"]:
 
 def route_after_arbiter(
     state: MCRSState,
-) -> Literal["polish", "revise_research", "revise_draft", "end"]:
+) -> Literal[
+    "intent_architect",
+    "research_lead",
+    "evidence_ledger",
+    "analyst",
+    "output_strategist",
+    "draft_writer",
+    "polisher",
+    "end",
+]:
     decision = state.get("release_decision", {})
     status = decision.get("status", "NOT_READY")
     revision_count = len(state.get("revision_history", []))
 
     if status == "READY":
-        return "polish"
+        return "polisher"
 
     if revision_count >= MAX_REVISIONS:
         return "end"
@@ -260,15 +273,38 @@ def route_after_arbiter(
     review = state.get("red_team_review", {})
     verification = state.get("verification_report", {})
 
-    review_issues = [i for i in review.get("issues", []) if i.get("severity") == "HIGH"]
-    unsupported = [
-        i for i in verification.get("items", []) if i.get("status") == "UNSUPPORTED"
+    all_issues = []
+
+    for issue in review.get("issues", []):
+        if issue.get("severity") == "HIGH":
+            all_issues.append(issue)
+
+    for item in verification.get("items", []):
+        if item.get("status") == "UNSUPPORTED":
+            all_issues.append(item)
+
+    if not all_issues:
+        return "end"
+
+    priority_order = [
+        "intent_architect",
+        "research_lead",
+        "evidence_ledger",
+        "analyst",
+        "output_strategist",
+        "draft_writer",
+        "polisher",
     ]
 
-    if review_issues and not unsupported:
-        return "revise_draft"
+    for locus in priority_order:
+        for issue in all_issues:
+            repair_locus = issue.get("repair_locus", "")
+            if repair_locus == locus:
+                return locus
 
-    return "revise_research"
+    return "draft_writer"
+
+    return "draft_writer"
 
 
 mcrs_app = create_mcrs_app()

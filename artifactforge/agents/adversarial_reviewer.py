@@ -32,6 +32,16 @@ Find these problem types:
 - MEDIUM: Significant weakness that should be fixed
 - LOW: Minor issue worth addressing
 
+## Repair Locus (CRITICAL)
+For EACH issue, you MUST specify where to send it for repair:
+- intent_architect: The whole task framing is wrong
+- research_lead: Need more/better sources (e.g., missing competitor analysis)
+- evidence_ledger: Facts exist but poorly separated from assumptions
+- analyst: Reasoning is weak even with good evidence
+- output_strategist: Structure wrong for audience
+- draft_writer: Expression/substance needs work
+- polisher: Just needs cleanup
+
 ## Temperament
 - Be rigorous and uncompromising
 - Do NOT give generic feedback ("improve clarity")
@@ -40,7 +50,7 @@ Find these problem types:
 
 ## Output Format
 Return JSON with:
-- issues: array of {issue_id, severity, section, problem_type, explanation, suggested_fix}
+- issues: array of {issue_id, severity, section, problem_type, repair_locus, explanation, suggested_fix}
 - overall_assessment: summary
 - passed: boolean (true if no HIGH severity issues)
 """
@@ -68,9 +78,23 @@ def run_adversarial_reviewer(
     try:
         parsed = json.loads(result)
         issues = parsed.get("issues", [])
+        valid_loci = {
+            "intent_architect",
+            "research_lead",
+            "evidence_ledger",
+            "analyst",
+            "output_strategist",
+            "draft_writer",
+            "polisher",
+        }
         for i, issue in enumerate(issues):
             if not issue.get("issue_id"):
                 issue["issue_id"] = f"R{i + 1:03d}"
+            if (
+                not issue.get("repair_locus")
+                or issue.get("repair_locus") not in valid_loci
+            ):
+                issue["repair_locus"] = "draft_writer"
 
         typed_issues = [schemas.RedTeamIssue(**i) for i in issues]
         return schemas.RedTeamReview(

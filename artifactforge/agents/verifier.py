@@ -31,6 +31,16 @@ Your job is to verify claims and find inconsistencies, NOT to rewrite.
 - fix_number: Numerical error
 - resolve_contradiction: Two claims conflict
 
+## Repair Locus (CRITICAL)
+For EACH item, specify where to send for repair:
+- intent_architect: Task framing wrong
+- research_lead: Need more/better sources
+- evidence_ledger: Claims not properly separated from assumptions
+- analyst: Reasoning logic is flawed
+- output_strategist: Structure/messaging wrong
+- draft_writer: Expression needs work
+- polisher: Just cleanup needed
+
 ## Language Downgrades
 - "is" -> "appears to be" / "may be"
 - "will" -> "may" / "might"
@@ -40,7 +50,7 @@ Your job is to verify claims and find inconsistencies, NOT to rewrite.
 
 ## Output Format
 Return JSON with:
-- items: array of {claim_id, status, notes, required_action}
+- items: array of {claim_id, status, repair_locus, notes, required_action}
 - summary: overview
 - passed: boolean (true if no UNSUPPORTED)
 """
@@ -66,6 +76,21 @@ def run_verifier(
     try:
         parsed = json.loads(result)
         items = parsed.get("items", [])
+        valid_loci = {
+            "intent_architect",
+            "research_lead",
+            "evidence_ledger",
+            "analyst",
+            "output_strategist",
+            "draft_writer",
+            "polisher",
+        }
+        for item in items:
+            if (
+                not item.get("repair_locus")
+                or item.get("repair_locus") not in valid_loci
+            ):
+                item["repair_locus"] = "evidence_ledger"
         typed_items = [schemas.VerificationItem(**i) for i in items]
         return schemas.VerificationReport(
             items=typed_items,

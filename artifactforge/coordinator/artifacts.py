@@ -137,6 +137,15 @@ class RedTeamIssue(TypedDict):
         "unaddressed_risk",
         "unexamined_assumption",
     ]
+    repair_locus: Literal[
+        "intent_architect",
+        "research_lead",
+        "evidence_ledger",
+        "analyst",
+        "output_strategist",
+        "draft_writer",
+        "polisher",
+    ]
     explanation: str
     suggested_fix: str
 
@@ -159,6 +168,15 @@ class VerificationItem(TypedDict):
 
     claim_id: str
     status: Literal["SUPPORTED", "WEAK", "UNSUPPORTED", "INCONSISTENT"]
+    repair_locus: Literal[
+        "intent_architect",
+        "research_lead",
+        "evidence_ledger",
+        "analyst",
+        "output_strategist",
+        "draft_writer",
+        "polisher",
+    ]
     notes: str
     required_action: Optional[
         Literal[
