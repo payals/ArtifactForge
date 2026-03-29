@@ -5,6 +5,11 @@ from typing import Any, Literal, Optional
 from typing_extensions import TypedDict
 
 from artifactforge.coordinator import artifacts as mcrs_artifacts
+from artifactforge.coordinator.artifacts import (
+    VisualSpec,
+    VisualReview,
+    VisualGeneration,
+)
 
 
 class GraphState(TypedDict):
@@ -116,7 +121,15 @@ class MCRSState(TypedDict):
     # Errors & Metadata
     # =========================================================================
     errors: list[str]
-    stage_timing: dict[str, float]  # stage -> elapsed seconds
+    stage_timing: dict[str, float]
+
+    # =========================================================================
+    # Phase 11: Visual Design
+    # =========================================================================
+    visual_specs: list[VisualSpec]
+    visual_reviews: list[VisualReview]
+    generated_visuals: list[VisualGeneration]
+    final_with_visuals: Optional[str]
 
 
 # Backward compatibility

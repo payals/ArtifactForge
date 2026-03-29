@@ -267,10 +267,68 @@ FINAL_ARBITER_CONTRACT = AgentContract(
 )
 
 
+VISUAL_DESIGNER_CONTRACT = AgentContract(
+    name="visual_designer",
+    mission="Analyze documents and suggest appropriate visualizations with Mermaid or Python.",
+    inputs=["draft_v1", "content_blueprint"],
+    required_output_schema=artifact_schemas.VisualSpec,
+    forbidden_behaviors=[
+        "Do not suggest visuals that don't add value",
+        "Do not use complex visuals when simple would work",
+        "Do not place visuals in wrong sections",
+        "Do not create misleading visualizations",
+    ],
+    pass_fail_criteria=[
+        "Appropriate visual types selected",
+        "Data specs are correct",
+        "Placement is logical",
+        "Complexity matches data needs",
+    ],
+)
+
+
+VISUAL_REVIEWER_CONTRACT = AgentContract(
+    name="visual_reviewer",
+    mission="Validate visual suggestions for clarity, accuracy, and appropriateness.",
+    inputs=["visual_specs", "draft_v1"],
+    required_output_schema=artifact_schemas.VisualReview,
+    forbidden_behaviors=[
+        "Do not approve misleading visuals",
+        "Do not miss placement errors",
+        "Do not overlook type mismatches",
+    ],
+    pass_fail_criteria=[
+        "All visuals reviewed",
+        "Issues clearly identified",
+        "Suggestions are actionable",
+    ],
+)
+
+
+VISUAL_GENERATOR_CONTRACT = AgentContract(
+    name="visual_generator",
+    mission="Generate visual assets - Mermaid for simple, Python/matplotlib for complex.",
+    inputs=["visual_specs", "visual_reviews"],
+    required_output_schema=artifact_schemas.VisualGeneration,
+    forbidden_behaviors=[
+        "Do not skip Mermaid for simple diagrams",
+        "Do not generate invalid matplotlib code",
+    ],
+    pass_fail_criteria=[
+        "Mermaid rendered where appropriate",
+        "Python code is valid and runnable",
+        "All approved specs generated",
+    ],
+)
+
+
 __all__ = [
     "AgentContract",
     "agent_contract",
     "get_agent_contract",
     "list_agents",
     "AGENT_REGISTRY",
+    "VISUAL_DESIGNER_CONTRACT",
+    "VISUAL_REVIEWER_CONTRACT",
+    "VISUAL_GENERATOR_CONTRACT",
 ]

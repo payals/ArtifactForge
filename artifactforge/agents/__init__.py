@@ -10,6 +10,9 @@ from artifactforge.agents.adversarial_reviewer import run_adversarial_reviewer
 from artifactforge.agents.verifier import run_verifier
 from artifactforge.agents.polisher import run_polisher
 from artifactforge.agents.final_arbiter import run_final_arbiter
+from artifactforge.agents.visual_designer import run_visual_designer
+from artifactforge.agents.visual_reviewer import run_visual_reviewer
+from artifactforge.agents.visual_generator import run_visual_generator
 
 __all__ = [
     "run_intent_architect",
@@ -22,4 +25,7 @@ __all__ = [
     "run_verifier",
     "run_polisher",
     "run_final_arbiter",
+    "run_visual_designer",
+    "run_visual_reviewer",
+    "run_visual_generator",
 ]

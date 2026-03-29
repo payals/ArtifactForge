@@ -13,7 +13,7 @@ MAX_RETRIES = 2
 
 
 def create_mcrs_app(checkpointer: Optional[Any] = None) -> StateGraph:
-    """Create the MCRS LangGraph application with 10 agents."""
+    """Create the MCRS LangGraph application with 13 agents (10 core + 3 visual)."""
     graph = StateGraph(MCRSState)
 
     graph.add_node("intent_architect", intent_architect_node)
@@ -26,6 +26,9 @@ def create_mcrs_app(checkpointer: Optional[Any] = None) -> StateGraph:
     graph.add_node("verifier", verifier_node)
     graph.add_node("polisher", polisher_node)
     graph.add_node("final_arbiter", final_arbiter_node)
+    graph.add_node("visual_designer", visual_designer_node)
+    graph.add_node("visual_reviewer", visual_reviewer_node)
+    graph.add_node("visual_generator", visual_generator_node)
 
     graph.set_entry_point("intent_architect")
 
@@ -58,7 +61,10 @@ def create_mcrs_app(checkpointer: Optional[Any] = None) -> StateGraph:
         },
     )
 
-    graph.add_edge("polisher", END)
+    graph.add_edge("polisher", "visual_designer")
+    graph.add_edge("visual_designer", "visual_reviewer")
+    graph.add_edge("visual_reviewer", "visual_generator")
+    graph.add_edge("visual_generator", END)
 
     compile_kwargs: dict[str, Any] = {}
     if checkpointer:
@@ -185,6 +191,46 @@ def final_arbiter_node(state: MCRSState) -> dict[str, Any]:
         verification_report=state["verification_report"],
     )
     return {"release_decision": result, "current_stage": "final_arbiter"}
+
+
+def visual_designer_node(state: MCRSState) -> dict[str, Any]:
+    from artifactforge.agents import run_visual_designer
+
+    polished = state.get("polished_draft") or state.get("draft_v1") or ""
+    blueprint = state.get("content_blueprint")
+    output_type = state.get("execution_brief", {}).get("output_type", "report")
+
+    result = run_visual_designer(
+        draft=polished,
+        content_blueprint=blueprint,
+        output_type=output_type,
+    )
+    return {"visual_specs": result or [], "current_stage": "visual_designer"}
+
+
+def visual_reviewer_node(state: MCRSState) -> dict[str, Any]:
+    from artifactforge.agents import run_visual_reviewer
+
+    specs = state.get("visual_specs", [])
+    polished = state.get("polished_draft") or state.get("draft_v1") or ""
+
+    result = run_visual_reviewer(visual_specs=specs, draft=polished)
+    return {"visual_reviews": result or [], "current_stage": "visual_reviewer"}
+
+
+def visual_generator_node(state: MCRSState) -> dict[str, Any]:
+    from artifactforge.agents import run_visual_generator
+
+    specs = state.get("visual_specs", [])
+    reviews = state.get("visual_reviews", [])
+
+    result = run_visual_generator(visual_specs=specs, approved_reviews=reviews)
+    polished = state.get("polished_draft") or state.get("draft_v1") or ""
+    return {
+        "generated_visuals": result or [],
+        "final_with_visuals": polished,
+        "current_stage": "visual_generator",
+    }
 
 
 def route_after_review(state: MCRSState) -> Literal["revise", "verify"]:

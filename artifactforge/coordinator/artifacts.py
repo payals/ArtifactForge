@@ -196,6 +196,64 @@ class ReleaseDecision(TypedDict):
 
 
 # =============================================================================
+# Phase 11: Visual Design
+# =============================================================================
+
+
+class VisualSpec(TypedDict):
+    """Single visual specification from Visual Designer."""
+
+    visual_id: str  # e.g., "V001"
+    section_anchor: str  # Where to insert (section header)
+    visual_type: Literal[
+        # Simple (Mermaid)
+        "flowchart",
+        "sequence_diagram",
+        "org_chart",
+        "timeline",
+        "gantt_chart",
+        "concept_diagram",
+        # Complex (Python)
+        "bar_chart",
+        "line_chart",
+        "pie_chart",
+        "scatter_plot",
+        "heatmap",
+        "statistical_chart",
+    ]
+    title: str
+    description: str  # What this visual shows
+    data_spec: dict  # Data needed or placeholder data
+    complexity: Literal["SIMPLE", "COMPLEX"]  # SIMPLE = Mermaid, COMPLEX = Python
+    mermaid_code: Optional[str]  # If SIMPLE
+    placeholder_position: str  # Where in section to insert
+
+
+class VisualReview(TypedDict):
+    """Output from Visual Reviewer - validation of visual suggestions."""
+
+    visual_id: str
+    is_appropriate: bool
+    clarity_score: float  # 0-1
+    data_accuracy: float  # 0-1
+    placement_correct: bool
+    issues: list[str]
+    suggestions: list[str]
+
+
+class VisualGeneration(TypedDict):
+    """Output from Visual Generator - generated visual assets."""
+
+    visual_id: str
+    visual_type: str
+    generated_code: Optional[str]  # Python/matplotlib code or file path
+    svg_output: Optional[str]  # For Mermaid SVGs
+    image_path: Optional[str]  # Path to generated image
+    generation_method: Literal["mermaid", "python"]
+    notes: str
+
+
+# =============================================================================
 # Revision Tracking
 # =============================================================================
 
@@ -223,6 +281,9 @@ ARTIFACT_SCHEMAS = {
     "red_team_review": RedTeamReview,
     "verification_report": VerificationReport,
     "release_decision": ReleaseDecision,
+    "visual_spec": VisualSpec,
+    "visual_review": VisualReview,
+    "visual_generation": VisualGeneration,
 }
 
 
@@ -240,5 +301,8 @@ __all__ = [
     "VerificationReport",
     "ReleaseDecision",
     "RevisionEntry",
+    "VisualSpec",
+    "VisualReview",
+    "VisualGeneration",
     "ARTIFACT_SCHEMAS",
 ]
