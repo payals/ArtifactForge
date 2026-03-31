@@ -6,10 +6,12 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable, Optional, cast
 
 from artifactforge.agents.llm_client import (
+    Provider,
     call_llm as _call_llm,
+    get_provider,
 )
 from artifactforge.observability.middleware import emit_status, get_trace_id
 
@@ -145,8 +147,12 @@ async def call_llm_async(
     temperature: float = 0.7,
     max_tokens: int = 32000,
 ) -> str:
-    provider = "ollama"
-    model = OLLAMA_MODEL
+    if provider is None:
+        provider = get_provider()
+    if model is None:
+        model = OLLAMA_MODEL
+
+    provider = cast(Provider, provider)
 
     if temperature == 0.7 and agent_name:
         temperature = get_agent_temperature(agent_name)

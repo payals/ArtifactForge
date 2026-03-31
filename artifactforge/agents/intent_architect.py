@@ -250,19 +250,11 @@ def _create_default_brief(
 
 
 def _call_llm(system: str, prompt: str) -> str:
-    from artifactforge.agents.llm_gateway import call_llm_async
-    import asyncio
+    from artifactforge.agents.llm_gateway import call_llm_sync
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(
-            call_llm_async(
-                system_prompt=system, user_prompt=prompt, agent_name="intent_architect"
-            )
-        )
-    finally:
-        loop.close()
+    return call_llm_sync(
+        system_prompt=system, user_prompt=prompt, agent_name="intent_architect"
+    )
 
 
 def generate_clarification_questions(
