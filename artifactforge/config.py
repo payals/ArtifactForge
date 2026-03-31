@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     )
 
     # Database
-    database_url: str = Field(
-        default="postgresql://artifactforge:artifactforge@localhost:5432/artifactforge",
+    database_url: Optional[str] = Field(
+        default=None,
         description="PostgreSQL connection string",
     )
 
@@ -38,6 +38,21 @@ class Settings(BaseSettings):
     # Application
     log_level: str = Field(default="INFO", description="Logging level")
     environment: str = Field(default="development", description="Environment")
+
+    # Optional Research Tool API Keys
+    tavily_api_key: Optional[str] = Field(default=None, description="Tavily API key")
+    exa_api_key: Optional[str] = Field(default=None, description="Exa API key")
+    firecrawl_api_key: Optional[str] = Field(
+        default=None, description="Firecrawl API key"
+    )
+    context7_api_key: Optional[str] = Field(
+        default=None, description="Context7 API key"
+    )
+
+    ollama_base_url: Optional[str] = Field(
+        default=None, description="Ollama base URL (e.g. http://localhost:11434)"
+    )
+    ollama_model: Optional[str] = Field(default=None, description="Ollama model name")
 
     def get_openai_base_url(self) -> str:
         """Get the OpenAI-compatible base URL."""

@@ -1,6 +1,7 @@
 """Deep analyzer tool - analyzes search results in depth."""
 
 import asyncio
+from datetime import datetime
 import logging
 import os
 from typing import Any, List
@@ -10,6 +11,7 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 from artifactforge.config import get_settings
+from artifactforge.observability.middleware import emit_status, get_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +38,14 @@ class DeepAnalyzeInput(BaseModel):
 
 async def _fetch_url_content(url: str) -> FetchResult:
     """Fetch content from a URL with proper error handling."""
+    emit_status(
+        f"Fetching source {url[:80]}",
+        trace_id=get_trace_id(),
+        node_name="deep_analyzer",
+        metadata={"kind": "fetch", "url": url},
+    )
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
             response = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
             response.raise_for_status()
             text = response.text
@@ -80,7 +88,7 @@ async def _analyze_with_anthropic(
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
     }
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=180.0) as client:
         response = await client.post(
             "https://api.anthropic.com/v1/messages",
             headers=headers,
@@ -119,7 +127,7 @@ async def _analyze_with_openai(
     sources: List[str], content: str, query: str
 ) -> dict[str, Any]:
     """Analyze using OpenAI API."""
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=180.0) as client:
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
             headers={
@@ -179,7 +187,12 @@ def deep_analyzer(sources: List[str], query: str) -> dict[str, Any]:
 
 
 def run_deep_analyzer(sources: List[str], query: str) -> dict[str, Any]:
-    import asyncio
+    emit_status(
+        f"Starting deep analysis of {len(sources)} sources",
+        trace_id=get_trace_id(),
+        node_name="deep_analyzer",
+        metadata={"kind": "status", "query": query, "source_count": len(sources)},
+    )
 
     fetch_results = asyncio.run(_fetch_all_sources(sources))
     successful_results = [r for r in fetch_results if r.success]
@@ -202,7 +215,25 @@ def run_deep_analyzer(sources: List[str], query: str) -> dict[str, Any]:
     valid_sources = [r.url for r in successful_results]
     combined = "\n\n---\n\n".join(contents)
 
-    return asyncio.run(_analyze_with_llm(valid_sources, combined, query))
+    emit_status(
+        f"Analyzing {len(successful_results)} fetched sources with LLM",
+        trace_id=get_trace_id(),
+        node_name="deep_analyzer",
+        metadata={
+            "kind": "analysis",
+            "query": query,
+            "source_count": len(successful_results),
+        },
+    )
+    result = asyncio.run(_analyze_with_llm(valid_sources, combined, query))
+    emit_status(
+        f"Analysis complete with {len(result.get('key_findings', []))} findings",
+        trace_id=get_trace_id(),
+        node_name="deep_analyzer",
+        metadata={"kind": "complete", "query": query},
+    )
+
+    return result
 
 
 async def _fetch_all_sources(sources: List[str]) -> List[FetchResult]:

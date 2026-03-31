@@ -58,6 +58,8 @@ class MCRSState(TypedDict):
     user_prompt: str
     conversation_context: Optional[list[dict]]
     output_constraints: Optional[dict]
+    intent_mode: Literal["auto", "interactive"]
+    answers_collected: dict[str, str]
 
     # =========================================================================
     # Phase 1: Intent
@@ -122,6 +124,15 @@ class MCRSState(TypedDict):
     # =========================================================================
     errors: list[str]
     stage_timing: dict[str, float]
+
+    # =========================================================================
+    # Observability & Metrics
+    # =========================================================================
+    tokens_used: dict[str, int]
+    costs: dict[str, float]
+    stage_metadata: dict[str, dict]
+    trace_id: Optional[str]
+    repair_context: Optional[dict[str, Any]]
 
     # =========================================================================
     # Phase 11: Visual Design

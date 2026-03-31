@@ -23,6 +23,8 @@ class ExecutionBrief(TypedDict):
     rigor_level: Literal["LOW", "MEDIUM", "HIGH"]
     persuasion_level: Literal["LOW", "MEDIUM", "HIGH"]
     open_questions_to_resolve: list[str]
+    intent_mode: Literal["auto", "interactive"]
+    answers_collected: dict[str, str]
 
 
 # =============================================================================

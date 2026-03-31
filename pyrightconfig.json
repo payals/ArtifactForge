@@ -1,0 +1,11 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "include": ["artifactforge", "tests"],
+  "exclude": [
+    ".venv",
+    "**/__pycache__",
+    ".pytest_cache",
+    "outputs"
+  ]
+}

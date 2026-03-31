@@ -1,11 +1,15 @@
 """Research Lead Agent - Maps information terrain and gathers relevant material."""
 
 import json
+import logging
 from typing import Any, Optional
 
 from artifactforge.coordinator import artifacts as schemas
 from artifactforge.coordinator.contracts import RESEARCH_LEAD_CONTRACT, agent_contract
-from artifactforge.tools.research.web_searcher import run_web_searcher, SearchError
+from artifactforge.tools.research.deep_analyzer import run_deep_analyzer
+from artifactforge.tools.research.web_searcher import SearchError, run_web_searcher
+
+logger = logging.getLogger(__name__)
 
 
 RESEARCH_LEAD_SYSTEM = """You are the Research Lead - an expert at mapping information terrain.
@@ -40,6 +44,7 @@ Return JSON with sources, facts, key_dimensions, competing_views, data_gaps, fol
 def run_research_lead(
     execution_brief: dict[str, Any],
     existing_research: Optional[dict[str, Any]] = None,
+    repair_context: Optional[dict[str, Any]] = None,
 ) -> schemas.ResearchMap:
     """Run research lead to gather information based on execution brief.
 
@@ -56,6 +61,8 @@ def run_research_lead(
 
     all_sources = []
     all_results = []
+    deep_analyses = []
+    search_errors = []
 
     for query in queries:
         try:
@@ -64,11 +71,31 @@ def run_research_lead(
             results = search_result.get("results", [])
             all_sources.extend(sources)
             all_results.extend(results)
+            analysis_sources = [url for url in sources if url][:3]
+            if analysis_sources:
+                analysis = run_deep_analyzer(sources=analysis_sources, query=query)
+                deep_analyses.append(
+                    {
+                        "query": query,
+                        "sources": analysis_sources,
+                        "summary": analysis.get("summary", ""),
+                        "key_findings": analysis.get("key_findings", []),
+                    }
+                )
         except SearchError as e:
-            pass
+            search_errors.append(
+                {"query": query, "message": str(e), "errors": getattr(e, "errors", [])}
+            )
+            logger.warning("research_search_failed query=%s errors=%s", query, e.errors)
 
     prompt = _build_research_prompt(
-        execution_brief, all_sources, all_results, existing_research
+        execution_brief,
+        all_sources,
+        all_results,
+        deep_analyses,
+        search_errors,
+        existing_research,
+        repair_context,
     )
     result = _call_llm(system=RESEARCH_LEAD_SYSTEM, prompt=prompt)
 
@@ -78,6 +105,9 @@ def run_research_lead(
         for i, s in enumerate(sources):
             if not s.get("source_id"):
                 s["source_id"] = f"SRC_{i + 1:03d}"
+        logger.info(
+            f"research_lead parsed: {len(sources)} sources, {len(parsed.get('facts', []))} facts"
+        )
         return schemas.ResearchMap(
             sources=sources,
             facts=parsed.get("facts", []),
@@ -86,7 +116,10 @@ def run_research_lead(
             data_gaps=parsed.get("data_gaps", []),
             followup_questions=parsed.get("followup_questions", []),
         )
-    except (json.JSONDecodeError, KeyError):
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning(
+            f"research_lead JSON parse failed: {e}, result length: {len(result)}"
+        )
         return _create_empty_research_map()
 
 
@@ -118,7 +151,10 @@ def _build_research_prompt(
     brief: dict[str, Any],
     sources: list[str],
     results: list[dict],
+    deep_analyses: list[dict[str, Any]],
+    search_errors: list[dict[str, Any]],
     existing: Optional[dict[str, Any]],
+    repair_context: Optional[dict[str, Any]],
 ) -> str:
     brief_json = json.dumps(
         {
@@ -137,8 +173,8 @@ def _build_research_prompt(
         for r in results[:10]:
             title = r.get("title", "")
             url = r.get("url", "")
-            content = r.get("content", "")[:500]
-            sources_text += f"- **{title}**\n  {url}\n  {content[:200]}...\n"
+            snippet = r.get("snippet", "")[:500]
+            sources_text += f"- **{title}**\n  {url}\n  {snippet[:200]}...\n"
 
     existing_text = ""
     if existing:
@@ -146,10 +182,34 @@ def _build_research_prompt(
             f"\n## Existing Research to Build Upon\n{json.dumps(existing, indent=2)}"
         )
 
+    repair_text = ""
+    if repair_context:
+        repair_text = f"\n## Repair Context\n{json.dumps(repair_context, indent=2)}"
+
+    deep_analysis_text = ""
+    if deep_analyses:
+        deep_analysis_text = "\n## Deep Source Analysis\n"
+        for analysis in deep_analyses:
+            findings = analysis.get("key_findings", [])
+            deep_analysis_text += (
+                f"- Query: {analysis.get('query', '')}\n"
+                f"  Summary: {analysis.get('summary', '')}\n"
+                f"  Findings: {json.dumps(findings[:5])}\n"
+            )
+
+    search_error_text = ""
+    if search_errors:
+        search_error_text = "\n## Search Errors Encountered\n" + json.dumps(
+            search_errors, indent=2
+        )
+
     return f"""## Execution Brief
 {brief_json}
 {sources_text}
+{deep_analysis_text}
+{search_error_text}
 {existing_text}
+{repair_text}
 
 Analyze these search results and create a research map with sources, facts, key dimensions, competing views, and data gaps. Return JSON with:
 - "sources": list of {{

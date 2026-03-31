@@ -1,5 +1,6 @@
 """Polisher Agent - Improves readability without changing substance."""
 
+import json
 from typing import Any
 
 from artifactforge.coordinator.contracts import POLISHER_CONTRACT, agent_contract
@@ -38,6 +39,7 @@ Return the polished version as a string.
 def run_polisher(
     draft: str,
     output_type: str = "report",
+    repair_context: dict[str, Any] | None = None,
 ) -> str:
     """Run polisher to improve readability.
 
@@ -48,17 +50,26 @@ def run_polisher(
     Returns:
         Polished draft
     """
-    prompt = _build_polish_prompt(draft, output_type)
+    prompt = _build_polish_prompt(draft, output_type, repair_context)
     result = _call_llm(system=POLISHER_SYSTEM, prompt=prompt)
     return result.strip()
 
 
-def _build_polish_prompt(draft: str, output_type: str) -> str:
+def _build_polish_prompt(
+    draft: str,
+    output_type: str,
+    repair_context: dict[str, Any] | None,
+) -> str:
+    repair_text = ""
+    if repair_context:
+        repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
+
     return f"""## Current Draft
 {draft}
 
 ## Target Format
 {output_type}
+{repair_text}
 
 Polish for readability. Keep all meaning, claims, and uncertainty markers intact. Return polished version."""
 

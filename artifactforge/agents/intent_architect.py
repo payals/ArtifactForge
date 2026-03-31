@@ -7,11 +7,80 @@ behind the user's literal prompt.
 import json
 from typing import Any, Optional
 
+from pydantic import BaseModel
+
 from artifactforge.coordinator import artifacts as schemas
 from artifactforge.coordinator.contracts import (
     INTENT_ARCHITECT_CONTRACT,
     agent_contract,
 )
+
+
+class ClarificationQuestion(BaseModel):
+    """A single clarification question with multiple choice options."""
+
+    id: str
+    question: str
+    options: list[str]  # Last option must be "Other (specify)"
+
+
+CLARIFICATION_QUESTION_SYSTEM = """You are an expert at asking clarifying questions to ensure an AI produces exactly what the user needs.
+
+Your job is to analyze the user's request and generate 3-5 targeted questions that will help produce a better output.
+Each question MUST have exactly 5 options - 4 specific choices + "Other (specify)" as the last option.
+
+## Output Type Guidelines:
+
+### SLIDES/PRESENTATION
+- Number of slides
+- Theme/style (corporate, creative, minimal, technical)
+- Content structure (section order)
+- Existing content to incorporate
+- Target audience
+- Presentation date/deadline
+- Speaker notes needed?
+
+### REPORT/DOCUMENT
+- Primary goal (inform, persuade, document, decide)
+- Target audience
+- Length/depth (brief overview, detailed analysis, comprehensive)
+- Existing data sources to use
+- Specific sections required
+- Deadline
+- Tone (formal, conversational, technical)
+
+### BLOG POST
+- Primary goal (educate, persuade, entertain)
+- Target audience expertise level
+- Desired length
+- SEO keywords to target
+- Existing content to reference
+- Tone (professional, casual, witty)
+
+### RFP
+- Project scope overview
+- Budget range
+- Timeline requirements
+- Required vendor qualifications
+- Evaluation criteria
+- Submission deadline
+
+### Other output types
+Generate questions appropriate to the output type and user prompt.
+
+## Output Format
+Return a JSON array of questions, each with:
+- id: unique identifier (q1, q2, q3, etc.)
+- question: the question text
+- options: array of 5 options (4 specific + "Other (specify)")
+
+Example:
+[
+  {"id": "q1", "question": "What is the primary goal?", 
+   "options": ["Inform/educate", "Persuade/convince", "Help make a decision", "Document current state", "Other (specify)"]},
+  {"id": "q2", "question": "Who is the target audience?",
+   "options": ["Executive leadership", "Technical team", "General public", "Industry experts", "Other (specify)"]}
+]"""
 
 
 INTENT_ARCHITECT_SYSTEM = """You are the Intent Architect - an expert at understanding what users actually need.
@@ -44,8 +113,8 @@ Return a JSON object with:
 - likely_missing_dimensions: What they'd need but didn't mention
 - decision_required: Whether a decision recommendation is needed
 - rigor_level: LOW/MEDIUM/HIGH based on stakes
-- persuasion_level: LOW/MEDIUM/HOW based on audience alignment
-- open_questions: What needs research to resolve
+- persuasion_level: LOW/MEDIUM/HIGH based on audience alignment
+- open_questions_to_resolve: What needs research to resolve
 """
 
 
@@ -54,6 +123,9 @@ def run_intent_architect(
     user_prompt: str,
     conversation_context: Optional[list[dict]] = None,
     output_constraints: Optional[dict] = None,
+    intent_mode: str = "auto",
+    answers_collected: Optional[dict[str, str]] = None,
+    repair_context: Optional[dict[str, Any]] = None,
 ) -> schemas.ExecutionBrief:
     """Analyze user intent and create execution brief.
 
@@ -65,21 +137,33 @@ def run_intent_architect(
     Returns:
         ExecutionBrief with all parameters defined
     """
-    prompt = _build_intent_prompt(user_prompt, conversation_context, output_constraints)
+    prompt = _build_intent_prompt(
+        user_prompt,
+        conversation_context,
+        output_constraints,
+        intent_mode,
+        answers_collected,
+        repair_context,
+    )
     result = _call_llm(system=INTENT_ARCHITECT_SYSTEM, prompt=prompt)
 
     try:
         parsed = json.loads(result)
+        parsed.setdefault("intent_mode", intent_mode)
+        parsed.setdefault("answers_collected", answers_collected or {})
         # Validate required fields
         return _validate_and_defaults(parsed)
     except (json.JSONDecodeError, KeyError, TypeError):
-        return _create_default_brief(user_prompt)
+        return _create_default_brief(user_prompt, intent_mode, answers_collected)
 
 
 def _build_intent_prompt(
     user_prompt: str,
     conversation_context: Optional[list[dict]],
     output_constraints: Optional[dict],
+    intent_mode: str,
+    answers_collected: Optional[dict[str, str]],
+    repair_context: Optional[dict[str, Any]],
 ) -> str:
     """Build prompt for intent analysis."""
     context_text = ""
@@ -95,10 +179,28 @@ def _build_intent_prompt(
             output_constraints, indent=2
         )
 
+    clarification_text = "\n## Clarification Mode\n"
+    clarification_text += (
+        "User chose interactive clarification before pipeline execution."
+        if intent_mode == "interactive"
+        else "User chose automatic execution without clarification questions."
+    )
+
+    if answers_collected:
+        clarification_text += "\n\n## Clarification Answers\n" + json.dumps(
+            answers_collected, indent=2
+        )
+
+    repair_text = ""
+    if repair_context:
+        repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
+
     return f"""## User Request
 {user_prompt}
 {context_text}
 {constraints_text}
+{clarification_text}
+{repair_text}
 
 Analyze this request and create an execution brief in JSON format."""
 
@@ -118,10 +220,16 @@ def _validate_and_defaults(parsed: dict) -> schemas.ExecutionBrief:
         "rigor_level": parsed.get("rigor_level", "MEDIUM"),
         "persuasion_level": parsed.get("persuasion_level", "MEDIUM"),
         "open_questions_to_resolve": parsed.get("open_questions_to_resolve", []),
+        "intent_mode": parsed.get("intent_mode", "auto"),
+        "answers_collected": parsed.get("answers_collected", {}),
     }
 
 
-def _create_default_brief(user_prompt: str) -> schemas.ExecutionBrief:
+def _create_default_brief(
+    user_prompt: str,
+    intent_mode: str = "auto",
+    answers_collected: Optional[dict[str, str]] = None,
+) -> schemas.ExecutionBrief:
     """Create default brief when parsing fails."""
     return {
         "user_goal": user_prompt,
@@ -136,15 +244,60 @@ def _create_default_brief(user_prompt: str) -> schemas.ExecutionBrief:
         "rigor_level": "MEDIUM",
         "persuasion_level": "MEDIUM",
         "open_questions_to_resolve": [],
+        "intent_mode": intent_mode if intent_mode == "interactive" else "auto",
+        "answers_collected": answers_collected or {},
     }
 
 
 def _call_llm(system: str, prompt: str) -> str:
-    from artifactforge.agents.llm_gateway import call_llm_sync
+    from artifactforge.agents.llm_gateway import call_llm_async
+    import asyncio
 
-    return call_llm_sync(
-        system_prompt=system, user_prompt=prompt, agent_name="intent_architect"
-    )
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(
+            call_llm_async(
+                system_prompt=system, user_prompt=prompt, agent_name="intent_architect"
+            )
+        )
+    finally:
+        loop.close()
 
 
-__all__ = ["run_intent_architect", "INTENT_ARCHITECT_CONTRACT"]
+def generate_clarification_questions(
+    user_prompt: str, output_type: str
+) -> list[ClarificationQuestion]:
+    """Generate dynamic clarification questions based on prompt and output type."""
+    prompt = f"""## User Request
+{user_prompt}
+
+## Output Type
+{output_type}
+
+Generate 3-5 clarification questions as a JSON array."""
+
+    result = _call_llm(system=CLARIFICATION_QUESTION_SYSTEM, prompt=prompt)
+
+    try:
+        parsed = json.loads(result)
+        questions = []
+        for item in parsed:
+            questions.append(
+                ClarificationQuestion(
+                    id=item.get("id", f"q{len(questions) + 1}"),
+                    question=item.get("question", ""),
+                    options=item.get("options", []),
+                )
+            )
+        return questions
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return []
+
+
+__all__ = [
+    "run_intent_architect",
+    "INTENT_ARCHITECT_CONTRACT",
+    "generate_clarification_questions",
+    "ClarificationQuestion",
+]

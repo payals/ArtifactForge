@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -81,42 +82,79 @@ def run_visual_generator(
 
 
 def _generate_mermaid(spec: dict) -> schemas.VisualGeneration:
-    return {
-        "visual_id": spec.get("visual_id", ""),
-        "visual_type": spec.get("visual_type", ""),
-        "generated_code": None,
-        "svg_output": f"<!-- Mermaid: {spec.get('mermaid_code', '')} -->",
-        "image_path": None,
-        "generation_method": "mermaid",
-        "notes": "Mermaid code provided - render with Mermaid library",
-    }
+    mermaid_code = spec.get("mermaid_code", "")
+
+    if not mermaid_code:
+        return {
+            "visual_id": spec.get("visual_id", ""),
+            "visual_type": spec.get("visual_type", ""),
+            "generated_code": None,
+            "svg_output": None,
+            "image_path": None,
+            "generation_method": "mermaid",
+            "notes": "No Mermaid code provided",
+        }
+
+    try:
+        import mermaid
+
+        svg_output = mermaid.render(mermaid_code)
+        image_path = None  # SVG doesn't need separate image path
+
+        return {
+            "visual_id": spec.get("visual_id", ""),
+            "visual_type": spec.get("visual_type", ""),
+            "generated_code": None,
+            "svg_output": svg_output,
+            "image_path": None,
+            "generation_method": "mermaid",
+            "notes": f"Mermaid rendered successfully",
+        }
+    except Exception as e:
+        return {
+            "visual_id": spec.get("visual_id", ""),
+            "visual_type": spec.get("visual_type", ""),
+            "generated_code": None,
+            "svg_output": None,
+            "image_path": None,
+            "generation_method": "mermaid",
+            "notes": f"Mermaid rendering failed: {str(e)}",
+        }
 
 
 def _generate_python(spec: dict) -> schemas.VisualGeneration:
     visual_type = spec.get("visual_type", "bar_chart")
     data_spec = spec.get("data_spec", {})
     title = spec.get("title", "Chart")
+    visual_id = spec.get("visual_id", "output")
 
-    code = _build_matplotlib_code(visual_type, data_spec, title)
+    code = _build_matplotlib_code(visual_type, data_spec, title, visual_id)
+
+    # Execute the generated Python code
+    image_path, svg_output, execution_notes = _execute_matplotlib_code(code, visual_id)
 
     return {
-        "visual_id": spec.get("visual_id", ""),
+        "visual_id": visual_id,
         "visual_type": visual_type,
         "generated_code": code,
-        "svg_output": None,
-        "image_path": None,
+        "svg_output": svg_output,
+        "image_path": image_path,
         "generation_method": "python",
-        "notes": "Python/matplotlib code generated - execute to create visual",
+        "notes": execution_notes,
     }
 
 
-def _build_matplotlib_code(visual_type: str, data_spec: dict, title: str) -> str:
+def _build_matplotlib_code(
+    visual_type: str, data_spec: dict, title: str, visual_id: str = "output"
+) -> str:
     data = data_spec.get("data", {})
     labels = data_spec.get("labels", [])
 
     if visual_type == "bar_chart":
         values = data.get("values", [])
-        return f"""import matplotlib.pyplot as plt
+        return f"""import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 labels = {labels}
 values = {values}
@@ -127,14 +165,17 @@ ax.set_title('{title}')
 ax.set_xlabel('Category')
 ax.set_ylabel('Value')
 plt.tight_layout()
-plt.savefig('visual_{data_spec.get("visual_id", "output")}.png', dpi=150)
-plt.show()
+plt.savefig('visual_{visual_id}.png', dpi=150)
+plt.savefig('visual_{visual_id}.svg')
+plt.close()
 """
 
     elif visual_type == "line_chart":
         x_values = data.get("x", [])
         y_values = data.get("y", [])
-        return f"""import matplotlib.pyplot as plt
+        return f"""import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 x = {x_values}
 y = {y_values}
@@ -146,13 +187,16 @@ ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.grid(True)
 plt.tight_layout()
-plt.savefig('visual_{data_spec.get("visual_id", "output")}.png', dpi=150)
-plt.show()
+plt.savefig('visual_{visual_id}.png', dpi=150)
+plt.savefig('visual_{visual_id}.svg')
+plt.close()
 """
 
     elif visual_type == "pie_chart":
         values = data.get("values", [])
-        return f"""import matplotlib.pyplot as plt
+        return f"""import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 labels = {labels}
 values = {values}
@@ -161,14 +205,17 @@ fig, ax = plt.subplots(figsize=(8, 8))
 ax.pie(values, labels=labels, autopct='%1.1f%%')
 ax.set_title('{title}')
 plt.tight_layout()
-plt.savefig('visual_{data_spec.get("visual_id", "output")}.png', dpi=150)
-plt.show()
+plt.savefig('visual_{visual_id}.png', dpi=150)
+plt.savefig('visual_{visual_id}.svg')
+plt.close()
 """
 
     elif visual_type == "scatter_plot":
         x_values = data.get("x", [])
         y_values = data.get("y", [])
-        return f"""import matplotlib.pyplot as plt
+        return f"""import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 x = {x_values}
 y = {y_values}
@@ -180,17 +227,85 @@ ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.grid(True)
 plt.tight_layout()
-plt.savefig('visual_{data_spec.get("visual_id", "output")}.png', dpi=150)
-plt.show()
+plt.savefig('visual_{visual_id}.png', dpi=150)
+plt.savefig('visual_{visual_id}.svg')
+plt.close()
 """
 
-    return f"""import matplotlib.pyplot as plt
-# Visual type '{visual_type}' - customize code as needed
-plt.figure()
-plt.title('{title}')
-plt.savefig('visual_{data_spec.get("visual_id", "output")}.png')
-plt.show()
+    return f"""import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+ax.set_title('{title}')
+plt.savefig('visual_{visual_id}.png', dpi=150)
+plt.savefig('visual_{visual_id}.svg')
+plt.close()
 """
+
+
+def _execute_matplotlib_code(
+    code: str, visual_id: str
+) -> tuple[Optional[str], Optional[str], str]:
+    """Execute generated matplotlib code and save image files.
+
+    Args:
+        code: Python code to execute
+        visual_id: Unique identifier for the visual
+
+    Returns:
+        Tuple of (image_path, svg_output, notes)
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        code_path = Path(tmpdir) / f"visual_{visual_id}.py"
+        code_path.write_text(code)
+
+        try:
+            result = subprocess.run(
+                ["python", str(code_path)],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode != 0:
+                return (
+                    None,
+                    None,
+                    f"Execution failed: {result.stderr}",
+                )
+
+            png_path = Path(tmpdir) / f"visual_{visual_id}.png"
+            svg_path = Path(tmpdir) / f"visual_{visual_id}.svg"
+
+            output_dir = Path("outputs/visuals")
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            final_image_path = None
+            final_svg_path = None
+
+            if png_path.exists():
+                final_image_path = str(output_dir / f"visual_{visual_id}.png")
+                shutil.copy(png_path, final_image_path)
+
+            if svg_path.exists():
+                final_svg_path = str(output_dir / f"visual_{visual_id}.svg")
+                shutil.copy(svg_path, final_svg_path)
+
+            svg_output = None
+            if svg_path.exists():
+                svg_output = svg_path.read_text()
+
+            notes = f"Executed successfully. PNG: {'yes' if final_image_path else 'no'}, SVG: {'yes' if svg_output else 'no'}"
+
+            return final_image_path, svg_output, notes
+
+        except subprocess.TimeoutExpired:
+            return None, None, "Execution timed out after 30 seconds"
+        except Exception as e:
+            return None, None, f"Execution error: {str(e)}"
 
 
 def _call_llm(system: str, prompt: str) -> str:

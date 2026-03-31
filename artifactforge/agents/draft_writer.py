@@ -47,6 +47,7 @@ def run_draft_writer(
     claim_ledger: dict[str, Any],
     analytical_backbone: dict[str, Any],
     content_blueprint: dict[str, Any],
+    repair_context: dict[str, Any] | None = None,
 ) -> str:
     """Run draft writer to generate complete draft.
 
@@ -60,7 +61,11 @@ def run_draft_writer(
         Draft content as string
     """
     prompt = _build_draft_prompt(
-        execution_brief, claim_ledger, analytical_backbone, content_blueprint
+        execution_brief,
+        claim_ledger,
+        analytical_backbone,
+        content_blueprint,
+        repair_context,
     )
     result = _call_llm(system=DRAFT_WRITER_SYSTEM, prompt=prompt)
     return result.strip()
@@ -71,6 +76,7 @@ def _build_draft_prompt(
     claims: dict,
     analysis: dict,
     blueprint: dict,
+    repair_context: dict[str, Any] | None,
 ) -> str:
     brief_json = json.dumps(
         {
@@ -108,6 +114,10 @@ def _build_draft_prompt(
             indent=2,
         )
 
+    repair_text = ""
+    if repair_context:
+        repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
+
     return f"""## Brief
 {brief_json}
 
@@ -115,6 +125,7 @@ def _build_draft_prompt(
 {blueprint_json}
 {claims_text}
 {analysis_text}
+{repair_text}
 
 Write the complete draft following the blueprint exactly. Preserve epistemic status of all claims."""
 

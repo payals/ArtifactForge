@@ -27,9 +27,10 @@ docker-compose up -d postgres
 # 3. Install dependencies
 pip install -e .
 
-# 4. Set environment variables
-export DATABASE_URL="postgresql://artifactforge:artifactforge@localhost:5432/artifactforge"
-export OPENAI_API_KEY="sk-..."
+# 4. Set environment variables (see .env.example)
+cp .env.example .env
+# Edit .env with your database URL and API keys
+source .env
 
 # 5. Run database migrations
 alembic upgrade head

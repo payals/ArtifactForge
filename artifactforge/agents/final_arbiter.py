@@ -5,6 +5,7 @@ from typing import Any
 
 from artifactforge.coordinator import artifacts as schemas
 from artifactforge.coordinator.contracts import FINAL_ARBITER_CONTRACT, agent_contract
+from artifactforge.coordinator.validation import validate_all_agents
 
 
 FINAL_ARBITER_SYSTEM = """You are the Final Arbiter - the quality gate that decides if output is ready.
@@ -20,12 +21,14 @@ Your job is to be strict. Don't approve weak work.
 6. Known gaps are disclosed
 7. Structure matches output type
 8. Output is usable by intended audience
+9. All agent contracts fulfilled (each agent's output meets its pass_fail_criteria)
 
 ## Decision Factors
 - Review issues: Any HIGH severity unresolved?
 - Verification: Any UNSUPPORTED claims remain?
 - Completeness: All must-answer questions addressed?
 - Quality: Would you ship this?
+- Contract validation: Do all agents meet their contract criteria?
 
 ## Confidence Scale
 - 0.9-1.0: Ready as-is
@@ -39,6 +42,7 @@ Return JSON with:
 - confidence: 0.0-1.0
 - remaining_risks: array
 - known_gaps: array
+- contract_validations: array of validation results for each agent
 - notes: explanation
 """
 
@@ -49,6 +53,7 @@ def run_final_arbiter(
     draft: str,
     red_team_review: dict[str, Any],
     verification_report: dict[str, Any],
+    all_artifacts: dict[str, Any],
 ) -> schemas.ReleaseDecision:
     """Run final arbiter to make release decision.
 
@@ -57,12 +62,16 @@ def run_final_arbiter(
         draft: Current draft
         red_team_review: Issues from adversarial reviewer
         verification_report: Verification findings
+        all_artifacts: All artifacts from the pipeline for validation
 
     Returns:
         ReleaseDecision
     """
+    # Run contract validation on all agents
+    validation_results = validate_all_agents(all_artifacts)
+
     prompt = _build_arbiter_prompt(
-        execution_brief, draft, red_team_review, verification_report
+        execution_brief, draft, red_team_review, verification_report, validation_results
     )
     result = _call_llm(system=FINAL_ARBITER_SYSTEM, prompt=prompt)
 
@@ -90,6 +99,7 @@ def _build_arbiter_prompt(
     draft: str,
     review: dict,
     verification: dict,
+    validation_results: list,
 ) -> str:
     brief_summary = json.dumps(
         {
@@ -127,6 +137,10 @@ def _build_arbiter_prompt(
             indent=2,
         )
 
+    validation_summary = "No validation results"
+    if validation_results:
+        validation_summary = json.dumps(validation_results, indent=2)
+
     return f"""## Brief
 {brief_summary}
 
@@ -135,6 +149,9 @@ def _build_arbiter_prompt(
 
 ## Verification Summary
 {verification_summary}
+
+## Contract Validation Results
+{validation_summary}
 
 ## Draft (excerpt)
 {draft[:2000]}

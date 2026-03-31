@@ -42,6 +42,7 @@ Return JSON with key_findings, primary_drivers, implications, risks, sensitiviti
 def run_analyst(
     execution_brief: dict[str, Any],
     claim_ledger: dict[str, Any],
+    repair_context: dict[str, Any] | None = None,
 ) -> schemas.AnalyticalBackbone:
     """Run analyst to generate second-order thinking.
 
@@ -52,7 +53,7 @@ def run_analyst(
     Returns:
         AnalyticalBackbone with reasoning
     """
-    prompt = _build_analyst_prompt(execution_brief, claim_ledger)
+    prompt = _build_analyst_prompt(execution_brief, claim_ledger, repair_context)
     result = _call_llm(system=ANALYST_SYSTEM, prompt=prompt)
 
     try:
@@ -71,7 +72,11 @@ def run_analyst(
         return _create_default_analysis(execution_brief)
 
 
-def _build_analyst_prompt(brief: dict, claims: dict) -> str:
+def _build_analyst_prompt(
+    brief: dict,
+    claims: dict,
+    repair_context: dict[str, Any] | None,
+) -> str:
     claims_summary = ""
     if claims.get("claims"):
         claims_text = "\n".join(
@@ -89,9 +94,14 @@ def _build_analyst_prompt(brief: dict, claims: dict) -> str:
         indent=2,
     )
 
+    repair_text = ""
+    if repair_context:
+        repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
+
     return f"""## Execution Brief
 {brief_json}
 {claims_summary}
+{repair_text}
 
 Generate second-order analysis. Return JSON."""
 

@@ -1,5 +1,6 @@
 """Web searcher tool - searches the web for information."""
 
+from datetime import datetime
 import logging
 import os
 from typing import Any
@@ -7,6 +8,8 @@ from typing import Any
 import httpx
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
+
+from artifactforge.observability.middleware import emit_status, get_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +44,7 @@ class WebSearchInput(BaseModel):
 async def _search_tavily(query: str, num_results: int) -> SearchResult:
     """Search using Tavily API."""
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 "https://api.tavily.com/search",
                 json={"query": query, "max_results": num_results},
@@ -84,7 +87,7 @@ async def _search_ddg(query: str, num_results: int) -> SearchResult:
         encoded_query = httpx.URL("https://html.duckduckgo.com/html/")
         params: dict[str, str | int] = {"q": query, "b": num_results}
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.get(encoded_query, params=params)
             response.raise_for_status()
             html = response.text
@@ -145,7 +148,20 @@ def web_searcher(query: str, num_results: int = 5) -> dict[str, Any]:
     Uses Tavily API if TAVILY_API_KEY is set, otherwise falls back to DuckDuckGo.
     Raises SearchError if all backends fail.
     """
-    return run_web_searcher(query=query, num_results=num_results)
+    emit_status(
+        f'Searching for "{query[:60]}..."',
+        trace_id=get_trace_id(),
+        node_name="web_searcher",
+        metadata={"kind": "search", "query": query, "num_results": num_results},
+    )
+    result = run_web_searcher(query=query, num_results=num_results)
+    emit_status(
+        f"Search complete with {len(result.get('results', []))} results",
+        trace_id=get_trace_id(),
+        node_name="web_searcher",
+        metadata={"kind": "complete", "query": query},
+    )
+    return result
 
 
 def run_web_searcher(query: str, num_results: int = 5) -> dict[str, Any]:

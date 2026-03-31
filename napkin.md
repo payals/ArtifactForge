@@ -1,2 +1,3 @@
 - 2026-03-28 Repo Surprise: Specialized research subclasses were effectively inactive until `SpecializedResearcher.enhance_strategy()` actually called `expand_queries()`.
 - 2026-03-28 What Worked: Internal coordinator/tests should call plain `run_*` helpers instead of LangChain tool wrappers to avoid wrapper-signature/type friction.
+- 2026-03-31 Repo Surprise: Importing `artifactforge.cli.main` from repo root reads `.env`, and extra API-key entries can break `Settings()` during pytest collection.

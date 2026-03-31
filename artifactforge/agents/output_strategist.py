@@ -63,6 +63,7 @@ Return JSON with structure (section headers), section_purposes, narrative_flow, 
 def run_output_strategist(
     execution_brief: dict[str, Any],
     analytical_backbone: dict[str, Any],
+    repair_context: dict[str, Any] | None = None,
 ) -> schemas.ContentBlueprint:
     """Run output strategist to design communication structure.
 
@@ -73,7 +74,9 @@ def run_output_strategist(
     Returns:
         ContentBlueprint with structure
     """
-    prompt = _build_strategy_prompt(execution_brief, analytical_backbone)
+    prompt = _build_strategy_prompt(
+        execution_brief, analytical_backbone, repair_context
+    )
     result = _call_llm(system=OUTPUT_STRATEGIST_SYSTEM, prompt=prompt)
 
     try:
@@ -90,7 +93,11 @@ def run_output_strategist(
         return _create_default_blueprint(execution_brief)
 
 
-def _build_strategy_prompt(brief: dict, analysis: dict) -> str:
+def _build_strategy_prompt(
+    brief: dict,
+    analysis: dict | None,
+    repair_context: dict[str, Any] | None,
+) -> str:
     brief_json = json.dumps(
         {
             "output_type": brief.get("output_type", "report"),
@@ -100,20 +107,47 @@ def _build_strategy_prompt(brief: dict, analysis: dict) -> str:
         indent=2,
     )
 
-    analysis_summary = json.dumps(
-        {
-            "key_findings": analysis.get("key_findings", [])[:5],
-            "risks": analysis.get("risks", [])[:3],
-            "recommendation_logic": analysis.get("recommendation_logic", [])[:3],
-        },
-        indent=2,
-    )
+    try:
+        if analysis is None or not isinstance(analysis, dict):
+            analysis_summary = json.dumps(
+                {
+                    "key_findings": [],
+                    "risks": [],
+                    "recommendation_logic": [],
+                },
+                indent=2,
+            )
+        else:
+            analysis_summary = json.dumps(
+                {
+                    "key_findings": (analysis.get("key_findings") or [])[:5],
+                    "risks": (analysis.get("risks") or [])[:3],
+                    "recommendation_logic": (
+                        analysis.get("recommendation_logic") or []
+                    )[:3],
+                },
+                indent=2,
+            )
+    except (TypeError, KeyError) as e:
+        analysis_summary = json.dumps(
+            {
+                "key_findings": [],
+                "risks": [],
+                "recommendation_logic": [],
+            },
+            indent=2,
+        )
+
+    repair_text = ""
+    if repair_context:
+        repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
 
     return f"""## Brief
 {brief_json}
 
 ## Analysis Summary
 {analysis_summary}
+{repair_text}
 
 Design the optimal structure. Return JSON."""
 

@@ -215,3 +215,22 @@ __marimo__/
 # Local workspace files
 .DS_Store
 .sisyphus/
+
+# IDE and editor
+.vscode/
+
+# Codebase memory (knowledge graph)
+.codebase-memory/
+
+# Napkin (persistent mistake memory)
+napkin.md
+
+# Output artifacts
+outputs/**/*.md
+outputs/**/*.pdf
+outputs/visuals/**/*.png
+outputs/visuals/**/*.jpg
+outputs/visuals/**/*.jpeg
+outputs/visuals/**/*.gif
+outputs/visuals/**/*.svg
+outputs/visuals/**/*.webp

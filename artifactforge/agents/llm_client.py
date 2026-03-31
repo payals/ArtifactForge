@@ -13,12 +13,24 @@ OPENAI_API_KEY = settings.get_openai_api_key()
 OPENAI_API_BASE = settings.get_openai_base_url()
 ANTHROPIC_API_KEY = settings.anthropic_api_key or os.getenv("ANTHROPIC_API_KEY")
 
+MLX_SERVER_URL = os.getenv("MLX_SERVER_URL", "")
+MLX_MODEL_PATH = os.getenv(
+    "MLX_MODEL_PATH",
+    "/Users/pi/.cache/huggingface/hub/models--mlx-community--Qwen3.5-9B-MLX-4bit/snapshots/938d8919941c6e7efd3c7150eff7fe9d12afa631",
+)
 
-Provider = Literal["openai", "anthropic", "mock", "openrouter"]
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:35b")
+
+
+Provider = Literal["openai", "anthropic", "mock", "openrouter", "mlx", "ollama"]
 
 
 def get_provider() -> Provider:
-    """Determine which LLM provider to use. Prefers OpenRouter if API key exists."""
+    if OLLAMA_BASE_URL and OLLAMA_BASE_URL.strip():
+        return "ollama"
+    if MLX_SERVER_URL and MLX_SERVER_URL.strip():
+        return "mlx"
     if OPENAI_API_KEY:
         return "openrouter"
     if ANTHROPIC_API_KEY:
@@ -32,12 +44,28 @@ async def call_llm(
     provider: Provider | None = None,
     model: str | None = None,
     temperature: float = 0.7,
-    max_tokens: int = 4096,
+    max_tokens: int = 32000,
 ) -> str:
     if provider is None:
         provider = get_provider()
 
-    if provider == "openrouter":
+    if provider == "ollama":
+        return await _call_ollama(
+            system_prompt,
+            user_prompt,
+            model or OLLAMA_MODEL,
+            temperature,
+            max_tokens,
+        )
+    elif provider == "mlx":
+        return await _call_mlx(
+            system_prompt,
+            user_prompt,
+            model or "qwen3.5-9b-mlx",
+            temperature,
+            max_tokens,
+        )
+    elif provider == "openrouter":
         return await _call_openai(
             system_prompt,
             user_prompt,
@@ -73,7 +101,7 @@ async def _call_anthropic(
 
     combined_prompt = f"{system_prompt}\n\n---\n\n{user_prompt}"
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=600.0) as client:
         response = await client.post(
             "https://api.anthropic.com/v1/messages",
             headers={
@@ -105,7 +133,7 @@ async def _call_openai(
     """Call OpenAI-compatible API (supports OpenRouter)."""
     assert OPENAI_API_KEY is not None
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=600.0) as client:
         response = await client.post(
             f"{OPENAI_API_BASE}/chat/completions",
             headers={
@@ -129,6 +157,65 @@ async def _call_openai(
     return msg.get("content") or msg.get("reasoning") or ""
 
 
+async def _call_mlx(
+    system_prompt: str,
+    user_prompt: str,
+    model: str,
+    temperature: float,
+    max_tokens: int,
+) -> str:
+    mlx_model = "qwen3.5-9b-mlx" if model == "mlx" else model
+    async with httpx.AsyncClient(timeout=600.0) as client:
+        response = await client.post(
+            f"{MLX_SERVER_URL}/v1/chat/completions",
+            headers={"Content-Type": "application/json"},
+            json={
+                "model": mlx_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    msg = data["choices"][0]["message"]
+    return msg.get("content") or msg.get("reasoning") or ""
+
+
+async def _call_ollama(
+    system_prompt: str,
+    user_prompt: str,
+    model: str,
+    temperature: float,
+    max_tokens: int,
+) -> str:
+    ollama_model = (
+        OLLAMA_MODEL if model in ("ollama", "qwen3.5:35b", OLLAMA_MODEL) else model
+    )
+    async with httpx.AsyncClient(timeout=600.0) as client:
+        response = await client.post(
+            f"{OLLAMA_BASE_URL}/api/chat",
+            json={
+                "model": ollama_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": temperature,
+                "options": {"num_predict": max_tokens},
+                "stream": False,
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    return data.get("message", {}).get("content", "")
+
+
 def _mock_response(user_prompt: str) -> str:
     """Mock response when no API keys available."""
     return json.dumps(
@@ -145,7 +232,7 @@ def call_llm_sync(
     provider: Provider | None = None,
     model: str | None = None,
     temperature: float = 0.7,
-    max_tokens: int = 4096,
+    max_tokens: int = 32000,
 ) -> str:
     """Synchronous wrapper for call_llm."""
     import asyncio

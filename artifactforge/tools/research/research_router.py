@@ -1,8 +1,31 @@
 """Research router - intelligent strategy selection for research phase."""
 
+import os
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+
+class ResearchTools(BaseModel):
+    """Available research tools configuration."""
+
+    tavily: bool = Field(default=False, description="Tavily web search available")
+    perplexity: bool = Field(
+        default=False, description="Perplexity AI search available"
+    )
+    exa: bool = Field(default=False, description="Exa semantic search available")
+    context7: bool = Field(default=False, description="Context7 docs search available")
+    firecrawl: bool = Field(default=False, description="Firecrawl scraper available")
+
+    @classmethod
+    def from_env(cls) -> "ResearchTools":
+        return cls(
+            tavily=bool(os.getenv("TAVILY_API_KEY")),
+            perplexity=bool(os.getenv("PERPLEXITY_API_KEY")),
+            exa=bool(os.getenv("EXA_API_KEY")),
+            context7=True,
+            firecrawl=bool(os.getenv("FIRECRAWL_API_KEY")),
+        )
 
 
 class ResearchStrategy(BaseModel):
@@ -13,6 +36,9 @@ class ResearchStrategy(BaseModel):
     search_queries: list[str] = Field(default_factory=list)
     domains: list[str] = Field(default_factory=list)
     parallel_searches: bool = True
+    preferred_tools: list[str] = Field(
+        default_factory=list, description="Preferred research tools for this strategy"
+    )
 
     def get_num_results(self) -> int:
         """Get number of results based on depth."""

@@ -64,6 +64,7 @@ def run_evidence_ledger(
     *,
     deep_analyze: bool = False,
     query_context: Optional[str] = None,
+    repair_context: Optional[dict[str, Any]] = None,
 ) -> schemas.ClaimLedger:
     """Run evidence ledger on research map to classify all claims.
 
@@ -80,6 +81,11 @@ def run_evidence_ledger(
     key_dimensions = research_map.get("key_dimensions", [])
 
     if not facts and not key_dimensions:
+        logger.warning(
+            "evidence_ledger skipping - no facts ({}) or key_dimensions ({}) available".format(
+                len(facts), len(key_dimensions)
+            )
+        )
         return {
             "claims": [],
             "summary": "No research data available for claim extraction",
@@ -105,6 +111,7 @@ def run_evidence_ledger(
         sources=sources,
         facts=facts,
         key_dimensions=key_dimensions,
+        repair_context=repair_context,
     )
 
     # Call LLM (would integrate with existing LLM client)
@@ -136,6 +143,7 @@ def _build_classification_prompt(
     sources: list[dict],
     facts: list[str],
     key_dimensions: list[str],
+    repair_context: Optional[dict[str, Any]] = None,
 ) -> str:
     """Build prompt for claim classification."""
     sources_text = "\n".join(
@@ -146,6 +154,10 @@ def _build_classification_prompt(
 
     dimensions_text = "\n".join(f"- {d}" for d in key_dimensions)
 
+    repair_text = ""
+    if repair_context:
+        repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
+
     return f"""## Sources Available
 {sources_text}
 
@@ -154,6 +166,7 @@ def _build_classification_prompt(
 
 ## Extracted Facts
 {facts_text}
+{repair_text}
 
 ## Your Task
 Create atomic claims from this research. For each claim:
