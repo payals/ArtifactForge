@@ -1,8 +1,8 @@
-# ArtifactForge
+# artifactory
 
 > Unified knowledge artifact generation pipeline
 
-**System:** ArtifactForge  
+**System:** artifactory  
 **Purpose:** Generate any knowledge artifact type (reports, commit reviews, RFPs, blog posts, runlists, whitepapers, etc.) from user descriptions  
 **Tech Stack:** Python, PostgreSQL (Docker), LangGraph
 
@@ -115,9 +115,9 @@ artifactforge status <artifact-id>
 ### Python API
 
 ```python
-from artifactforge import ArtifactForge
+from artifactforge import artifactory
 
-client = ArtifactForge()
+client = artifactory()
 
 # Generate artifact
 artifact = await client.generate(

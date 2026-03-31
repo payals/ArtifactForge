@@ -1,4 +1,4 @@
-"""End-to-end integration tests for ArtifactForge MCRS pipeline.
+"""End-to-end integration tests for artifactory MCRS pipeline.
 
 Tests all 13 agents with contract validation and quality gates.
 Uses Ollama LLM with kimi model for real inference.

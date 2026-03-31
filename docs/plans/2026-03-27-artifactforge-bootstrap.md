@@ -1,8 +1,8 @@
-# ArtifactForge Bootstrap Implementation Plan
+# artifactory Bootstrap Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Bootstrap ArtifactForge - a universal knowledge artifact generator with Python, PostgreSQL, and LangGraph. Implement all 5 phases from the bootstrap prompt.
+**Goal:** Bootstrap artifactory - a universal knowledge artifact generator with Python, PostgreSQL, and LangGraph. Implement all 5 phases from the bootstrap prompt.
 
 **Architecture:** Hybrid composable tool ecosystem with specialized tools dynamically assembled per artifact type. LangGraph orchestrates the pipeline with state machine, checkpointing, and tool invocation.
 
@@ -14,7 +14,7 @@
 
 ```bash
 # Start PostgreSQL
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 docker-compose up -d postgres
 
 # Wait for health check
@@ -44,7 +44,7 @@ mkdir -p tests/{unit,integration}
 **Step 2: Create `src/artifactforge/__init__.py`**
 
 ```python
-"""ArtifactForge - Universal knowledge artifact generator."""
+"""artifactory - Universal knowledge artifact generator."""
 
 __version__ = "0.1.0"
 
@@ -62,7 +62,7 @@ __all__ = ["Settings", "__version__"]
 **Step 4: Create `src/artifactforge/config.py`**
 
 ```python
-"""Configuration management for ArtifactForge."""
+"""Configuration management for artifactory."""
 
 from functools import lru_cache
 from typing import Optional
@@ -104,7 +104,7 @@ def get_settings() -> Settings:
 **Step 5: Verify package can be imported**
 
 ```bash
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 pip install -e .
 python -c "from artifactforge import Settings, __version__; print(f'OK: {__version__}')"
 ```
@@ -142,7 +142,7 @@ class Base(DeclarativeBase):
 Create `src/artifactforge/db/models.py`:
 
 ```python
-"""Core SQLAlchemy models for ArtifactForge."""
+"""Core SQLAlchemy models for artifactory."""
 
 import uuid
 from datetime import datetime
@@ -798,7 +798,7 @@ __all__ = ["Base", "engine", "get_db", "SessionLocal"]
 **Step 1: Initialize Alembic**
 
 ```bash
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 alembic init migrations
 ```
 
@@ -826,14 +826,14 @@ target_metadata = Base.metadata
 **Step 4: Create initial migration**
 
 ```bash
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 alembic revision --autogenerate -m "initial schema"
 ```
 
 **Step 5: Verify migration runs successfully**
 
 ```bash
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 alembic upgrade head
 ```
 
@@ -846,7 +846,7 @@ Expected: No errors, tables created
 **Step 1: Run verification command**
 
 ```bash
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 alembic upgrade head
 python -c "from artifactforge.db import models; print('OK')"
 ```
@@ -1138,7 +1138,7 @@ __all__ = ["app", "create_app", "get_checkpointer"]
 **Step 1: Run verification command**
 
 ```bash
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 python -c "from artifactforge.coordinator import app; print('OK')"
 ```
 
@@ -1265,7 +1265,7 @@ __all__ = ["web_searcher", "deep_analyzer"]
 Create `src/artifactforge/tools/__init__.py`:
 
 ```python
-"""ArtifactForge tools."""
+"""artifactory tools."""
 
 from artifactforge.tools.research import web_searcher, deep_analyzer
 
@@ -1279,7 +1279,7 @@ __all__ = ["web_searcher", "deep_analyzer"]
 **Step 1: Run verification command**
 
 ```bash
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 python -c "from artifactforge.tools.research import web_searcher; print('OK')"
 ```
 
@@ -1393,7 +1393,7 @@ __all__ = ["generate_simple_report"]
 **Step 1: Run verification command**
 
 ```bash
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 python -c "from artifactforge.tools.generic_generator import generic_generator; print('OK')"
 ```
 
@@ -1560,7 +1560,7 @@ __all__ = ["GateResult", "QualityGate", "GateRunner", "QualityGateRunner"]
 Create `src/artifactforge/cli/main.py`:
 
 ```python
-"""CLI entry point for ArtifactForge."""
+"""CLI entry point for artifactory."""
 
 import asyncio
 from typing import Optional
@@ -1599,7 +1599,7 @@ def main():
     """Main CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="ArtifactForge CLI")
+    parser = argparse.ArgumentParser(description="artifactory CLI")
     subparsers = parser.add_subparsers(dest="command")
 
     # Generate command
@@ -1635,7 +1635,7 @@ __all__ = ["main"]
 **Step 1: Run verification command**
 
 ```bash
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 python -c "from artifactforge.cli import main; print('OK')"
 ```
 
@@ -1649,7 +1649,7 @@ Expected: `OK`
 
 ```bash
 # Phase 1
-cd /Users/pi/Projects/ArtifactForge/artifactforge-design
+cd /Users/pi/Projects/artifactory/artifactforge-design
 alembic upgrade head
 
 # Phase 2

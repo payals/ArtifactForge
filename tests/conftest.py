@@ -1,4 +1,4 @@
-"""Pytest fixtures for ArtifactForge E2E testing."""
+"""Pytest fixtures for artifactory E2E testing."""
 
 import os
 

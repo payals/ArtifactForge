@@ -1,6 +1,6 @@
 # Research Process Implementation Plan
 
-**Project:** ArtifactForge - Research Layer Enhancement  
+**Project:** artifactory - Research Layer Enhancement  
 **Author:** Implementation Plan  
 **Date:** 2026-03-27  
 **Status:** Approved  

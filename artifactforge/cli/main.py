@@ -1,4 +1,4 @@
-"""CLI entry point for ArtifactForge."""
+"""CLI entry point for artifactory."""
 
 import asyncio
 import html
@@ -360,7 +360,7 @@ def main():
     """Main CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="ArtifactForge CLI")
+    parser = argparse.ArgumentParser(description="artifactory CLI")
     subparsers = parser.add_subparsers(dest="command")
 
     gen_parser = subparsers.add_parser("generate", help="Generate an artifact")

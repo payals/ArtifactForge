@@ -1,4 +1,4 @@
-"""E2E test fixtures for ArtifactForge MCRS pipeline.
+"""E2E test fixtures for artifactory MCRS pipeline.
 
 Provides mock data for research tools and expected schema fixtures for contract validation.
 """

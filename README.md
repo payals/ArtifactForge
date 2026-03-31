@@ -1,6 +1,6 @@
-# ArtifactForge
+# artifactory
 > Universal AI-powered pipeline for generating any knowledge artifact - self-evolving, observable, customizable
-Generate reports, RFPs, commit reviews, runlists, whitepapers, blog posts, slide decks — or any knowledge artifact — from a simple description. ArtifactForge uses AI that learns from its mistakes and improves over time.
+Generate reports, RFPs, commit reviews, runlists, whitepapers, blog posts, slide decks — or any knowledge artifact — from a simple description. artifactory uses AI that learns from its mistakes and improves over time.
 ## Features
 ### Universal Artifact Generation
 - **Schema-driven** — Define any artifact type via schema in the database
@@ -174,7 +174,7 @@ SELECT * FROM stage_metrics WHERE trace_id = 'abc-123';
 ```
 
 ## Artifact Types
-ArtifactForge ships with schemas for:
+artifactory ships with schemas for:
 - RFPs — Request for Proposals with requirements, timeline, budget
 - Blog Posts — SEO-optimized articles with research
 - Commit Reviews — Code review summaries
@@ -182,7 +182,7 @@ ArtifactForge ships with schemas for:
 Add your own — just insert a schema into the database.
 
 Evaluation & Quality Assurance
-ArtifactForge includes built-in evaluation mechanisms to ensure artifact quality:
+artifactory includes built-in evaluation mechanisms to ensure artifact quality:
 LLM-as-Judge
 - Automated quality assessment using the same LLM that generated the artifact
 - Scores across multiple dimensions: accuracy, coherence, completeness, tone

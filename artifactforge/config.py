@@ -1,4 +1,4 @@
-"""Configuration management for ArtifactForge."""
+"""Configuration management for artifactory."""
 
 import os
 from functools import lru_cache

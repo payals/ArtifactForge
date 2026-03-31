@@ -1,4 +1,4 @@
-"""Core SQLAlchemy models for ArtifactForge."""
+"""Core SQLAlchemy models for artifactory."""
 
 import uuid
 from datetime import datetime

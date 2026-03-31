@@ -1,6 +1,6 @@
-# ArtifactForge Database Schema Design
+# artifactory Database Schema Design
 
-> **System:** ArtifactForge  
+> **System:** artifactory  
 > **Purpose:** Unified knowledge artifact generation pipeline  
 > **Database:** PostgreSQL (Docker)  
 > **Designed as:** Senior Database Architect  

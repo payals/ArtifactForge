@@ -1,4 +1,4 @@
-# ArtifactForge - Bootstrap Prompt
+# artifactory - Bootstrap Prompt
 
 > Use with: `/ulw-loop` in oh-my-opencode
 
@@ -85,7 +85,7 @@ python -c "from artifactforge.cli import main; print('OK')"
 Before bootstrapping, you may want design review:
 
 ```
-You are a senior software architect. Review the ArtifactForge design documents and propose improvements.
+You are a senior software architect. Review the artifactory design documents and propose improvements.
 
 ## Documents to Review
 1. `architecture-design.md` - System architecture

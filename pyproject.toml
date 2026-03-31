@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "ArtifactForge Team"}
+    {name = "artifactory Team"}
 ]
 
 dependencies = [
@@ -57,6 +57,7 @@ python-version = "3.11"
 strict = true
 
 [tool.pytest.ini_options]
+addopts = "-m 'not e2e'"
 markers = [
     "e2e: end-to-end integration tests",
     "slow: tests that take longer to run",

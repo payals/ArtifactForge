@@ -1,1 +1,1 @@
-"""End-to-end integration tests for ArtifactForge MCRS pipeline."""
+"""End-to-end integration tests for artifactory MCRS pipeline."""

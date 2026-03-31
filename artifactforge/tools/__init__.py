@@ -1,4 +1,4 @@
-"""ArtifactForge tools."""
+"""artifactory tools."""
 
 from artifactforge.tools.research import web_searcher, deep_analyzer
 

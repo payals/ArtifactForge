@@ -1,4 +1,4 @@
-"""ArtifactForge - Universal knowledge artifact generator."""
+"""artifactory - Universal knowledge artifact generator."""
 
 __version__ = "0.1.0"
 
