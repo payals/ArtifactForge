@@ -40,6 +40,7 @@ def run_polisher(
     draft: str,
     output_type: str = "report",
     repair_context: dict[str, Any] | None = None,
+    learnings_context: dict[str, Any] | None = None,
 ) -> str:
     """Run polisher to improve readability.
 
@@ -52,7 +53,7 @@ def run_polisher(
     """
     prompt = _build_polish_prompt(draft, output_type, repair_context)
     result = _call_llm(system=POLISHER_SYSTEM, prompt=prompt)
-    return result.strip()
+    return _strip_markdown_fence(result)
 
 
 def _build_polish_prompt(
@@ -72,6 +73,17 @@ def _build_polish_prompt(
 {repair_text}
 
 Polish for readability. Keep all meaning, claims, and uncertainty markers intact. Return polished version."""
+
+
+def _strip_markdown_fence(text: str) -> str:
+    """Remove wrapping ```markdown ... ``` code fences from LLM output."""
+    import re
+
+    stripped = text.strip()
+    match = re.match(r"^```(?:markdown)?\s*\n(.*?)```\s*$", stripped, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return stripped
 
 
 def _call_llm(system: str, prompt: str) -> str:

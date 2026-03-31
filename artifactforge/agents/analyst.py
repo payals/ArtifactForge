@@ -44,6 +44,7 @@ def run_analyst(
     execution_brief: dict[str, Any],
     claim_ledger: dict[str, Any],
     repair_context: dict[str, Any] | None = None,
+    learnings_context: dict[str, Any] | None = None,
 ) -> schemas.AnalyticalBackbone:
     """Run analyst to generate second-order thinking.
 
@@ -54,7 +55,7 @@ def run_analyst(
     Returns:
         AnalyticalBackbone with reasoning
     """
-    prompt = _build_analyst_prompt(execution_brief, claim_ledger, repair_context)
+    prompt = _build_analyst_prompt(execution_brief, claim_ledger, repair_context, learnings_context)
     result = _call_llm(system=ANALYST_SYSTEM, prompt=prompt)
 
     try:
@@ -77,6 +78,7 @@ def _build_analyst_prompt(
     brief: dict,
     claims: dict,
     repair_context: dict[str, Any] | None,
+    learnings_context: dict[str, Any] | None = None,
 ) -> str:
     claims_summary = ""
     if claims.get("claims"):
@@ -99,10 +101,15 @@ def _build_analyst_prompt(
     if repair_context:
         repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
 
+    from artifactforge.agents.learnings_utils import build_learnings_section
+
+    learnings_text = build_learnings_section(learnings_context)
+
     return f"""## Execution Brief
 {brief_json}
 {claims_summary}
 {repair_text}
+{learnings_text}
 
 Generate second-order analysis. Return JSON."""
 

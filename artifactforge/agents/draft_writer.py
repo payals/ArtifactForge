@@ -58,6 +58,7 @@ def run_draft_writer(
     analytical_backbone: dict[str, Any],
     content_blueprint: dict[str, Any],
     repair_context: dict[str, Any] | None = None,
+    learnings_context: dict[str, Any] | None = None,
 ) -> str:
     """Run draft writer to generate complete draft.
 
@@ -76,9 +77,10 @@ def run_draft_writer(
         analytical_backbone,
         content_blueprint,
         repair_context,
+        learnings_context,
     )
     result = _call_llm(system=DRAFT_WRITER_SYSTEM, prompt=prompt)
-    return result.strip()
+    return _strip_markdown_fence(result)
 
 
 def _build_draft_prompt(
@@ -87,6 +89,7 @@ def _build_draft_prompt(
     analysis: dict,
     blueprint: dict,
     repair_context: dict[str, Any] | None,
+    learnings_context: dict[str, Any] | None = None,
 ) -> str:
     brief_json = json.dumps(
         {
@@ -129,6 +132,10 @@ def _build_draft_prompt(
     if repair_context:
         repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
 
+    from artifactforge.agents.learnings_utils import build_learnings_section
+
+    learnings_text = build_learnings_section(learnings_context)
+
     return f"""## Brief
 {brief_json}
 
@@ -137,8 +144,20 @@ def _build_draft_prompt(
 {claims_text}
 {analysis_text}
 {repair_text}
+{learnings_text}
 
 Write the complete draft following the blueprint exactly. Preserve epistemic status of all claims."""
+
+
+def _strip_markdown_fence(text: str) -> str:
+    """Remove wrapping ```markdown ... ``` code fences from LLM output."""
+    import re
+
+    stripped = text.strip()
+    match = re.match(r"^```(?:markdown)?\s*\n(.*?)```\s*$", stripped, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return stripped
 
 
 def _call_llm(system: str, prompt: str) -> str:

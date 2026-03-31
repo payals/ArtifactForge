@@ -55,6 +55,7 @@ def run_final_arbiter(
     red_team_review: dict[str, Any],
     verification_report: dict[str, Any],
     all_artifacts: dict[str, Any],
+    learnings_context: dict[str, Any] | None = None,
 ) -> schemas.ReleaseDecision:
     """Run final arbiter to make release decision.
 

@@ -1,12 +1,10 @@
 """Observability middleware for LangGraph nodes."""
 
-import asyncio
 import contextvars
 import functools
 import threading
 import time
 import uuid
-from datetime import datetime
 from typing import Any, Callable, Optional
 
 import structlog
@@ -222,26 +220,51 @@ def trace_node(node_name: str) -> Callable:
                     },
                 )
 
+                # Persist node execution and evaluation data to DB
                 try:
-                    from artifactforge.observability.metrics import (
-                        StageMetrics,
-                        get_metrics_collector,
-                    )
+                    from artifactforge.db.persistence import get_persistence
 
-                    collector = get_metrics_collector()
-                    pool = getattr(collector, "_pool", None)
-                    if pool:
-                        stage_metrics = StageMetrics(
-                            trace_id=trace_id,
+                    persistence = get_persistence()
+                    artifact_id = state.get("artifact_id")
+                    if artifact_id and persistence.enabled:
+                        persistence.record_node(
+                            artifact_id=artifact_id,
                             node_name=node_name,
-                            start_time=datetime.fromtimestamp(start_time),
-                            end_time=datetime.fromtimestamp(time.perf_counter()),
                             duration_ms=int(elapsed * 1000),
-                            success=True,
-                            tokens_used=llm_stats.get("llm_calls", 0) * 1000,
+                            tokens=llm_stats.get("llm_calls", 0) * 1000,
                             cost=llm_stats.get("llm_cost_usd", 0.0),
+                            success=True,
                         )
-                        asyncio.create_task(collector.record_stage(stage_metrics))
+
+                        # Record evaluations for reviewer/verifier/arbiter
+                        if node_name == "adversarial_reviewer":
+                            review = result.get("red_team_review")
+                            if review:
+                                persistence.record_evaluation(
+                                    artifact_id=artifact_id,
+                                    node_name=node_name,
+                                    issues=review.get("issues", []),
+                                    passed=review.get("passed", False),
+                                )
+                        elif node_name == "verifier":
+                            report = result.get("verification_report")
+                            if report:
+                                persistence.record_evaluation(
+                                    artifact_id=artifact_id,
+                                    node_name=node_name,
+                                    issues=report.get("items", []),
+                                    passed=report.get("passed", False),
+                                )
+                        elif node_name == "final_arbiter":
+                            decision = result.get("release_decision")
+                            if decision:
+                                persistence.record_quality_gate(
+                                    artifact_id=artifact_id,
+                                    gate_name="final_arbiter",
+                                    passed=decision.get("status") == "READY",
+                                    score=decision.get("confidence"),
+                                    details=decision,
+                                )
                 except Exception:
                     pass
 
@@ -297,25 +320,22 @@ def trace_node(node_name: str) -> Callable:
                     "error": str(e),
                 }
 
+                # Persist failed node execution to DB
                 try:
-                    from artifactforge.observability.metrics import (
-                        StageMetrics,
-                        get_metrics_collector,
-                    )
+                    from artifactforge.db.persistence import get_persistence
 
-                    collector = get_metrics_collector()
-                    pool = getattr(collector, "_pool", None)
-                    if pool:
-                        stage_metrics = StageMetrics(
-                            trace_id=trace_id,
+                    persistence = get_persistence()
+                    artifact_id = state.get("artifact_id")
+                    if artifact_id and persistence.enabled:
+                        persistence.record_node(
+                            artifact_id=artifact_id,
                             node_name=node_name,
-                            start_time=datetime.fromtimestamp(start_time),
-                            end_time=datetime.fromtimestamp(time.perf_counter()),
                             duration_ms=int(elapsed * 1000),
+                            tokens=0,
+                            cost=0.0,
                             success=False,
                             error=str(e),
                         )
-                        asyncio.create_task(collector.record_stage(stage_metrics))
                 except Exception:
                     pass
 

@@ -78,6 +78,7 @@ def run_adversarial_reviewer(
     draft: str,
     claim_ledger: dict[str, Any],
     execution_brief: dict[str, Any],
+    learnings_context: dict[str, Any] | None = None,
 ) -> schemas.RedTeamReview:
     """Run adversarial reviewer to attack the draft.
 

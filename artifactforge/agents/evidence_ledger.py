@@ -74,6 +74,7 @@ def run_evidence_ledger(
     deep_analyze: bool = False,
     query_context: Optional[str] = None,
     repair_context: Optional[dict[str, Any]] = None,
+    learnings_context: Optional[dict[str, Any]] = None,
 ) -> schemas.ClaimLedger:
     """Run evidence ledger on research map to classify all claims.
 
@@ -121,6 +122,7 @@ def run_evidence_ledger(
         facts=facts,
         key_dimensions=key_dimensions,
         repair_context=repair_context,
+        learnings_context=learnings_context,
     )
 
     # Call LLM (would integrate with existing LLM client)
@@ -160,8 +162,11 @@ def _build_classification_prompt(
     facts: list[str],
     key_dimensions: list[str],
     repair_context: Optional[dict[str, Any]] = None,
+    learnings_context: Optional[dict[str, Any]] = None,
 ) -> str:
     """Build prompt for claim classification."""
+    from artifactforge.agents.learnings_utils import build_learnings_section
+
     sources_text = "\n".join(
         f"- {s.get('title', 'Unknown')}: {s.get('source_id', 'N/A')}" for s in sources
     )
@@ -174,6 +179,8 @@ def _build_classification_prompt(
     if repair_context:
         repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
 
+    learnings_text = build_learnings_section(learnings_context)
+
     return f"""## Sources Available
 {sources_text}
 
@@ -183,6 +190,7 @@ def _build_classification_prompt(
 ## Extracted Facts
 {facts_text}
 {repair_text}
+{learnings_text}
 
 ## Your Task
 Create atomic claims from this research. For each claim:

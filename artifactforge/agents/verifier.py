@@ -64,6 +64,7 @@ Return JSON with:
 def run_verifier(
     draft: str,
     claim_ledger: dict[str, Any],
+    learnings_context: dict[str, Any] | None = None,
 ) -> schemas.VerificationReport:
     """Run verifier to check claim support and consistency.
 

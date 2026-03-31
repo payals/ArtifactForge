@@ -186,6 +186,7 @@ def intent_architect_node(state: MCRSState) -> dict[str, Any]:
         intent_mode=state.get("intent_mode", "auto"),
         answers_collected=state.get("answers_collected"),
         repair_context=repair_context,
+        learnings_context=state.get("learnings_context"),
     )
     return {
         "execution_brief": result,
@@ -204,6 +205,7 @@ def research_lead_node(state: MCRSState) -> dict[str, Any]:
         execution_brief=state["execution_brief"],
         existing_research=state.get("research_map"),
         repair_context=repair_context,
+        learnings_context=state.get("learnings_context"),
     )
     return {"research_map": result, "repair_context": repair_context}
 
@@ -216,6 +218,7 @@ def evidence_ledger_node(state: MCRSState) -> dict[str, Any]:
     result = run_evidence_ledger(
         research_map=state["research_map"],
         repair_context=repair_context,
+        learnings_context=state.get("learnings_context"),
     )
     return {"claim_ledger": result, "repair_context": repair_context}
 
@@ -229,6 +232,7 @@ def analyst_node(state: MCRSState) -> dict[str, Any]:
         execution_brief=state["execution_brief"],
         claim_ledger=state["claim_ledger"],
         repair_context=repair_context,
+        learnings_context=state.get("learnings_context"),
     )
     return {"analytical_backbone": result, "repair_context": repair_context}
 
@@ -242,6 +246,7 @@ def output_strategist_node(state: MCRSState) -> dict[str, Any]:
         execution_brief=state["execution_brief"],
         analytical_backbone=state["analytical_backbone"],
         repair_context=repair_context,
+        learnings_context=state.get("learnings_context"),
     )
     return {"content_blueprint": result, "repair_context": repair_context}
 
@@ -258,6 +263,7 @@ def draft_writer_node(state: MCRSState) -> dict[str, Any]:
         analytical_backbone=state["analytical_backbone"],
         content_blueprint=state["content_blueprint"],
         repair_context=repair_context,
+        learnings_context=state.get("learnings_context"),
     )
     from datetime import datetime
 
@@ -298,6 +304,7 @@ def adversarial_reviewer_node(state: MCRSState) -> dict[str, Any]:
         draft=state["draft_v1"] or "",
         claim_ledger=state["claim_ledger"],
         execution_brief=state["execution_brief"],
+        learnings_context=state.get("learnings_context"),
     )
     return {"red_team_review": result, "repair_context": None}
 
@@ -309,6 +316,7 @@ def verifier_node(state: MCRSState) -> dict[str, Any]:
     result = run_verifier(
         draft=state["draft_v1"] or "",
         claim_ledger=state["claim_ledger"],
+        learnings_context=state.get("learnings_context"),
     )
     return {"verification_report": result, "repair_context": None}
 
@@ -325,6 +333,7 @@ def polisher_node(state: MCRSState) -> dict[str, Any]:
         draft=state["draft_v1"] or "",
         output_type=output_type,
         repair_context=repair_context,
+        learnings_context=state.get("learnings_context"),
     )
     updates: dict[str, Any] = {"polished_draft": result, "repair_context": repair_context}
     if repair_context:
@@ -365,6 +374,7 @@ def final_arbiter_node(state: MCRSState) -> dict[str, Any]:
         red_team_review=state["red_team_review"],
         verification_report=state["verification_report"],
         all_artifacts=all_artifacts,
+        learnings_context=state.get("learnings_context"),
     )
     return {"release_decision": result, "repair_context": None}
 
@@ -535,10 +545,10 @@ def route_after_arbiter(
         _emit_route_decision(
             state,
             "final_arbiter",
-            "end",
-            f"Revision limit reached ({revision_count}/{MAX_REVISIONS})",
+            "polisher",
+            f"Revision limit reached ({revision_count}/{MAX_REVISIONS}); proceeding to polish",
         )
-        return "end"
+        return "polisher"
 
     all_issues = []
 

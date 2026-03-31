@@ -127,6 +127,7 @@ def run_intent_architect(
     intent_mode: str = "auto",
     answers_collected: Optional[dict[str, str]] = None,
     repair_context: Optional[dict[str, Any]] = None,
+    learnings_context: Optional[dict[str, Any]] = None,
 ) -> schemas.ExecutionBrief:
     """Analyze user intent and create execution brief.
 
@@ -145,6 +146,7 @@ def run_intent_architect(
         intent_mode,
         answers_collected,
         repair_context,
+        learnings_context,
     )
     result = _call_llm(system=INTENT_ARCHITECT_SYSTEM, prompt=prompt)
 
@@ -165,8 +167,11 @@ def _build_intent_prompt(
     intent_mode: str,
     answers_collected: Optional[dict[str, str]],
     repair_context: Optional[dict[str, Any]],
+    learnings_context: Optional[dict[str, Any]] = None,
 ) -> str:
     """Build prompt for intent analysis."""
+    from artifactforge.agents.learnings_utils import build_learnings_section
+
     context_text = ""
     if conversation_context:
         context_text = "\n## Prior Conversation\n" + "\n".join(
@@ -196,12 +201,15 @@ def _build_intent_prompt(
     if repair_context:
         repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
 
+    learnings_text = build_learnings_section(learnings_context)
+
     return f"""## User Request
 {user_prompt}
 {context_text}
 {constraints_text}
 {clarification_text}
 {repair_text}
+{learnings_text}
 
 Analyze this request and create an execution brief in JSON format."""
 

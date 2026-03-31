@@ -80,6 +80,7 @@ def run_output_strategist(
     execution_brief: dict[str, Any],
     analytical_backbone: dict[str, Any],
     repair_context: dict[str, Any] | None = None,
+    learnings_context: dict[str, Any] | None = None,
 ) -> schemas.ContentBlueprint:
     """Run output strategist to design communication structure.
 
@@ -91,7 +92,7 @@ def run_output_strategist(
         ContentBlueprint with structure
     """
     prompt = _build_strategy_prompt(
-        execution_brief, analytical_backbone, repair_context
+        execution_brief, analytical_backbone, repair_context, learnings_context
     )
     result = _call_llm(system=OUTPUT_STRATEGIST_SYSTEM, prompt=prompt)
 
@@ -113,6 +114,7 @@ def _build_strategy_prompt(
     brief: dict,
     analysis: dict | None,
     repair_context: dict[str, Any] | None,
+    learnings_context: dict[str, Any] | None = None,
 ) -> str:
     brief_json = json.dumps(
         {
@@ -159,12 +161,17 @@ def _build_strategy_prompt(
     if repair_context:
         repair_text = "\n## Repair Context\n" + json.dumps(repair_context, indent=2)
 
+    from artifactforge.agents.learnings_utils import build_learnings_section
+
+    learnings_text = build_learnings_section(learnings_context)
+
     return f"""## Brief
 {brief_json}
 
 ## Analysis Summary
 {analysis_summary}
 {repair_text}
+{learnings_text}
 
 Design the optimal structure. Return JSON."""
 

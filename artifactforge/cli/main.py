@@ -300,6 +300,8 @@ async def _run_pipeline(
 
     enable_live_display()
 
+    from artifactforge.db.persistence import get_persistence
+
     emitter = get_event_emitter()
     trace_id = str(uuid.uuid4())
     emitter.emit_pipeline_start(trace_id, description, output_type)
@@ -307,6 +309,15 @@ async def _run_pipeline(
     metrics = get_metrics_collector()
     await metrics.initialize()
     await metrics.start_pipeline(description, output_type, trace_id=trace_id)
+
+    # Create artifact row in DB (no-op if DATABASE_URL not set)
+    persistence = get_persistence()
+    artifact_id = persistence.start_run(trace_id, description, output_type)
+
+    # Fetch learnings from prior runs for this artifact type
+    learnings_context = persistence.fetch_learnings(
+        agent_name="pipeline", artifact_type=output_type
+    )
 
     initial_state = {
         "user_prompt": description,
@@ -319,6 +330,8 @@ async def _run_pipeline(
         "intent_mode": intent_mode,
         "answers_collected": answers_collected or {},
         "trace_id": trace_id,
+        "artifact_id": artifact_id,
+        "learnings_context": learnings_context,
         "repair_context": None,
     }
 
@@ -349,6 +362,31 @@ async def _run_pipeline(
         final_stage=result.get("current_stage"),
         total_tokens=total_tokens,
         total_cost=total_cost,
+    )
+
+    # Persist completion + metrics + learnings to DB
+    run_status = "completed" if len(result.get("errors", [])) == 0 else "failed"
+    final_draft = result.get("polished_draft") or result.get("draft_v1")
+    persistence.complete_run(
+        artifact_id=artifact_id or "",
+        status=run_status,
+        final_draft=final_draft,
+        stage_timing=result.get("stage_timing", {}),
+        tokens_used=tokens_used if isinstance(tokens_used, dict) else {},
+        costs=costs if isinstance(costs, dict) else {},
+        release_decision=result.get("release_decision"),
+        review_results=result.get("red_team_review"),
+        verification_report=result.get("verification_report"),
+    )
+
+    # Extract learnings from this run
+    persistence.extract_learnings(
+        artifact_id=artifact_id or "",
+        artifact_type=output_type,
+        revision_history=result.get("revision_history", []),
+        release_decision=result.get("release_decision"),
+        errors=result.get("errors", []),
+        red_team_review=result.get("red_team_review"),
     )
 
     logger.info("Pipeline complete at stage %s", result.get("current_stage"))

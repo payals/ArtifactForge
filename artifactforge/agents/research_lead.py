@@ -46,6 +46,7 @@ def run_research_lead(
     execution_brief: dict[str, Any],
     existing_research: Optional[dict[str, Any]] = None,
     repair_context: Optional[dict[str, Any]] = None,
+    learnings_context: Optional[dict[str, Any]] = None,
 ) -> schemas.ResearchMap:
     """Run research lead to gather information based on execution brief.
 
@@ -97,6 +98,7 @@ def run_research_lead(
         search_errors,
         existing_research,
         repair_context,
+        learnings_context,
     )
     result = _call_llm(system=RESEARCH_LEAD_SYSTEM, prompt=prompt)
 
@@ -156,7 +158,10 @@ def _build_research_prompt(
     search_errors: list[dict[str, Any]],
     existing: Optional[dict[str, Any]],
     repair_context: Optional[dict[str, Any]],
+    learnings_context: Optional[dict[str, Any]] = None,
 ) -> str:
+    from artifactforge.agents.learnings_utils import build_learnings_section
+
     brief_json = json.dumps(
         {
             "user_goal": brief.get("user_goal", ""),
@@ -211,6 +216,7 @@ def _build_research_prompt(
 {search_error_text}
 {existing_text}
 {repair_text}
+{build_learnings_section(learnings_context)}
 
 Analyze these search results and create a research map with sources, facts, key dimensions, competing views, and data gaps. Return JSON with:
 - "sources": list of {{

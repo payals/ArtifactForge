@@ -130,6 +130,8 @@ class MCRSState(TypedDict):
     costs: dict[str, float]
     stage_metadata: dict[str, dict]
     trace_id: Optional[str]
+    artifact_id: Optional[str]  # DB artifact row ID, set by persistence adapter
+    learnings_context: Optional[dict[str, Any]]  # Injected from prior runs
     repair_context: Optional[dict[str, Any]]
 
     # =========================================================================
